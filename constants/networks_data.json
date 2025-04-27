@@ -1,0 +1,11 @@
+{
+  "LINEA": {
+    "chain_id": 59144,
+    "rpc_url": "https://linea.drpc.org",
+    "explorer_url": "https://lineascan.build/",
+    "pool_address": "0x2f9bB73a8e98793e26Cb2F6C4ad037BDf1C6B269",
+    "ltoken_address": "0x176211869cA2b568f2A7D4EE941E073a821EE1ff",
+    "usdc_address": "0x176211869cA2b568f2A7D4EE941E073a821EE1ff",
+    "decimals": 18
+  }
+}
