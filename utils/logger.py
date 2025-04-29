@@ -1,17 +1,24 @@
 import logging
+import colorlog
 
+# Создаем обработчик
+handler = colorlog.StreamHandler()
+handler.setFormatter(
+    colorlog.ColoredFormatter(
+        "%(log_color)s%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        log_colors={
+            'DEBUG': 'cyan',
+            'INFO': 'green',
+            'WARNING': 'yellow',
+            'ERROR': 'red',
+            'CRITICAL': 'red,bg_white',
+        },
+    )
+)
 
-def setup_logger(name: str = "swap-logger") -> logging.Logger:
-    logger_ = logging.getLogger(name)
-    logger_.setLevel(logging.INFO)
-
-    if not logger_.handlers:
-        console_handler = logging.StreamHandler()
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-        console_handler.setFormatter(formatter)
-        logger_.addHandler(console_handler)
-    logger_.propagate = False
-    return logger_
-
-
-logger = setup_logger()
+# Создаем логгер
+logger = logging.getLogger('zeroland')
+logger.setLevel(logging.INFO)
+logger.addHandler(handler)
+logger.propagate = False  # Предотвращаем дублирование логов

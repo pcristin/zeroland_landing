@@ -12,6 +12,7 @@ from client.networks import Network
 import asyncio
 import logging
 import json
+from decimal import Decimal
 
 with open("abi/erc20_abi.json", "r", encoding="utf-8") as file:
     ERC20_ABI = json.load(file)
@@ -167,39 +168,53 @@ class Client:
 
     # Преобразование в веи
     async def to_wei_main(self, number: int | float, token_address: Optional[str] = None):
-        if token_address:
-            contract = await self.get_contract(token_address, ERC20_ABI)
-            decimals = await contract.functions.decimals().call()
-        else:
-            decimals = 18
+        try:
+            if token_address:
+                contract = await self.get_contract(token_address, ERC20_ABI)
+                decimals = await contract.functions.decimals().call()
+            else:
+                decimals = 18
 
-        unit_name = {
-            6: "mwei",
-            9: "gwei",
-            18: "ether"
-        }.get(decimals)
+            unit_name = {
+                6: "mwei",
+                9: "gwei",
+                18: "ether"
+            }.get(decimals)
 
-        if not unit_name:
-            raise RuntimeError(f"Невозможно найти имя юнита с децималами: {decimals}")
-        return self.w3.to_wei(number, unit_name)
+            if not unit_name:
+                # Для нестандартных decimals используем прямой расчет
+                return int(Decimal(str(number)) * Decimal(10 ** decimals))
+            
+            return self.w3.to_wei(number, unit_name)
+        except Exception as e:
+            logger.error(f"❌ Ошибка преобразования в wei: {e}")
+            # Возвращаем значение по умолчанию при ошибке
+            return int(float(number) * (10 ** 18))
 
     # Преобразование из веи
     async def from_wei_main(self, number: int | float, token_address: Optional[str] = None):
-        if token_address:
-            contract = await self.get_contract(token_address, ERC20_ABI)
-            decimals = await contract.functions.decimals().call()
-        else:
-            decimals = 18
+        try:
+            if token_address:
+                contract = await self.get_contract(token_address, ERC20_ABI)
+                decimals = await contract.functions.decimals().call()
+            else:
+                decimals = 18
 
-        unit_name = {
-            6: "mwei",
-            9: "gwei",
-            18: "ether"
-        }.get(decimals)
+            unit_name = {
+                6: "mwei",
+                9: "gwei",
+                18: "ether"
+            }.get(decimals)
 
-        if not unit_name:
-            raise RuntimeError(f"Невозможно найти имя юнита с децималами: {decimals}")
-        return self.w3.from_wei(number, unit_name)
+            if not unit_name:
+                # Для нестандартных decimals используем прямой расчет
+                return float(Decimal(str(number)) / Decimal(10 ** decimals))
+            
+            return self.w3.from_wei(number, unit_name)
+        except Exception as e:
+            logger.error(f"❌ Ошибка преобразования из wei: {e}")
+            # Возвращаем значение по умолчанию при ошибке
+            return float(number) / (10 ** 18)
 
     # Метод для построения swap транзакции
     async def build_swap_tx(self, quote_data: dict) -> TxParams:
@@ -335,3 +350,36 @@ class Client:
             except Exception as e:
                 logger.error(f"❌ Ошибка при получении receipt: {e}")
                 return False
+
+    # Дополнительный метод для проверки успешности депозита
+    async def verify_deposit_success(self, pool_contract, user_address):
+        """
+        Проверяет, был ли депозит успешно зарегистрирован на платформе ZeroLend
+        
+        Args:
+            pool_contract: Контракт пула ZeroLend
+            user_address: Адрес пользователя для проверки
+            
+        Returns:
+            bool: True если депозит подтвержден, False в противном случае
+        """
+        try:
+            # Здесь мы проверяем, отразился ли депозит в контракте
+            # Конкретный метод зависит от API контракта ZeroLend
+            
+            # Пример (может потребоваться корректировка в зависимости от контракта):
+            user_data = await pool_contract.functions.getUserAccountData(user_address).call()
+            
+            # Для примера, проверяем есть ли у пользователя какой-либо deposit
+            total_collateral_eth = user_data[0]  # total collateral ETH
+            
+            if total_collateral_eth > 0:
+                logger.info(f"✅ Депозит подтвержден! Общий залог: {await self.from_wei_main(total_collateral_eth):.8f} ETH")
+                return True
+            else:
+                logger.warning("⚠️ Депозит не найден в пуле. Возможно, транзакция еще не индексирована или произошла ошибка.")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Ошибка при проверке депозита: {str(e)}")
+            return False
